@@ -1,56 +1,77 @@
-async function carregarExtintor() {
-    const params = new URLSearchParams(window.location.search);
-    const cod = params.get("cod"); // ex: ext001
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FireCheck</title>
+</head>
 
-    if (!cod) {
-        document.getElementById("result").innerText = "Código não informado.";
-        return;
-    }
+<body>
+    <h1>Dados do Extintor</h1>
 
-    const urlCSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCuZ_eeAu4oDcAgxVR0kiZ2wuckk2O0giZP0JB44lcw1lfZd3gGVdXIZX0OdVzZSCMU/pub?output=csv";
+    <div id="result">Carregando...</div>
 
-    try {
-        const response = await fetch(urlCSV);
-        const csv = await response.text();
+    <script>
+        async function carregarExtintor() {
+            const params = new URLSearchParams(window.location.search);
+            const cod = params.get("cod"); // ex: ext001
 
-        // transformar CSV em linhas
-        const linhas = csv.split("\n").map(l => l.trim());
+            if (!cod) {
+                document.getElementById("result").innerText = "Código não informado.";
+                return;
+            }
 
-        const colunas = linhas[0].split(",").map(c => c.trim()); // cabeçalho
+            const urlCSV =
+                "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCuZ_eeAu4oDcAgxVR0kiZ2wuckk2O0giZP0JB44lcw1lfZd3gGVdXIZX0OdVzZSCMU/pub?output=csv";
 
-        // procurar linha do código
-        const alvo = linhas
-            .slice(1)
-            .map(linha => linha.split(","))
-            .find(c => c[0].toLowerCase() === cod.toLowerCase());
+            try {
+                const response = await fetch(urlCSV);
+                const csv = await response.text();
 
-        if (!alvo) {
-            document.getElementById("result").innerText = "Extintor não encontrado.";
-            return;
+                // Quebra o CSV em linhas
+                const linhas = csv.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+
+                const colunas = linhas[0].split(",").map(c => c.trim()); // cabeçalhos
+
+                // Procura o extintor pelo Codextin
+                const alvo = linhas
+                    .slice(1)
+                    .map(linha => linha.split(","))
+                    .find(c => c[0].toLowerCase() === cod.toLowerCase());
+
+                if (!alvo) {
+                    document.getElementById("result").innerText =
+                        `Extintor "${cod}" não encontrado na planilha.`;
+                    return;
+                }
+
+                // Monta objeto
+                const ext = {};
+                colunas.forEach((nome, i) => {
+                    ext[nome] = alvo[i] || "";
+                });
+
+                // Exibe os dados
+                document.getElementById("result").innerHTML = `
+                    <p><b>Código:</b> ${ext.Codextin}</p>
+                    <p><b>Esquadrão:</b> ${ext.Esquadrão}</p>
+                    <p><b>Prédio:</b> ${ext.Prédio}</p>
+                    <p><b>Local:</b> ${ext.Local}</p>
+                    <p><b>Tipo:</b> ${ext.Tipo}</p>
+                    <p><b>Capacidade:</b> ${ext.Capacidade}</p>
+                    <p><b>Vistoriador:</b> ${ext.Vistoriador}</p>
+                    <p><b>Data da Vistoria:</b> ${ext.DataVist}</p>
+                    <p><b>Observações:</b> ${ext.Obs}</p>
+                `;
+            } catch (e) {
+                document.getElementById("result").innerText =
+                    "Erro ao carregar os dados.";
+                console.error(e);
+            }
         }
 
-        // montar objeto simples
-        const ext = {};
-        colunas.forEach((nome, i) => {
-            ext[nome] = alvo[i] || "";
-        });
+        carregarExtintor();
+    </script>
 
-        // exibir
-        document.getElementById("result").innerHTML = `
-            <h2>Extintor ${ext.Codextin}</h2>
-            <p><b>Esquadrão:</b> ${ext.Esquadrão}</p>
-            <p><b>Prédio:</b> ${ext.Prédio}</p>
-            <p><b>Local:</b> ${ext.Local}</p>
-            <p><b>Tipo:</b> ${ext.Tipo}</p>
-            <p><b>Capacidade:</b> ${ext.Capacidade}</p>
-            <p><b>Vistoriador:</b> ${ext.Vistoriador}</p>
-            <p><b>Data da Vistoria:</b> ${ext.DataVist}</p>
-            <p><b>Obs:</b> ${ext.Obs}</p>
-        `;
-    } catch (e) {
-        document.getElementById("result").innerText = "Erro ao carregar os dados.";
-        console.error(e);
-    }
-}
-
-carregarExtintor();
+</body>
+</html>
