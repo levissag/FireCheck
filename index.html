@@ -1,50 +1,31 @@
-async function loadExtintor() {
+async function carregarDadosExtintor() {
+    const cod = "EXT001";  // código do extintor
+    const url = `https://script.google.com/macros/s/AKfycbysvNbJzTvgJ60pz5dQOfjME67gI0DXP0ZkLYq45GHEiiWIafS_TpUYiBFxXNqHkntcqg/exec?cod=${cod}`;
 
-    const url = "https://docs.google.com/spreadsheets/d/1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I/gviz/tq?tqx=out:json";
+    try {
+        // Faz a requisição ao Apps Script
+        const response = await fetch(url);
+        const text = await response.text();
 
-    const response = await fetch(url);
-    const text = await response.text();
+        // O web app retorna JSON puro
+        const ext = JSON.parse(text);
 
-    // Extrai o JSON corretamente — sem substring fixa!
-    const jsonText = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
-    const data = JSON.parse(jsonText);
-
-    const rows = data.table.rows.map(r => r.c.map(c => c ? c.v : ""));
-    const header = data.table.cols.map(c => c.label);
-
-    const items = rows.map(r => {
-        let obj = {};
-        header.forEach((h, i) => obj[h] = r[i]);
-        return obj;
-    });
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const cod = urlParams.get("cod");
-
-    if (!cod) {
-        document.getElementById("conteudo").innerHTML = "Código não informado";
-        return;
+        // Substitui os campos no HTML
+        document.getElementById("codextin").innerText = ext.Codextin || "";
+        document.getElementById("esquadrao").innerText = ext.Esquadrão || "";
+        document.getElementById("predio").innerText = ext.Prédio || "";
+        document.getElementById("local").innerText = ext.Local || "";
+        document.getElementById("tipo").innerText = ext.Tipo || "";
+        document.getElementById("capacidade").innerText = ext.Capacidade || "";
+        document.getElementById("vistoriador").innerText = ext.Vistoriador || "";
+        document.getElementById("dataVist").innerText = ext.DataVist || "";
+        document.getElementById("obs").innerText = ext.Obs || "";
+    } catch (e) {
+        console.error("Erro ao carregar dados:", e);
+        document.getElementById("erro").innerText =
+            "Erro ao carregar os dados. Verifique o link do Web App e a permissão.";
     }
-
-    const ext = items.find(x => x.Codextin == cod);
-
-    if (!ext) {
-        document.getElementById("conteudo").innerHTML = "Extintor não encontrado";
-        return;
-    }
-
-    document.getElementById("conteudo").innerHTML = `
-        <h2>Dados do Extintor</h2>
-        <p><b>Código:</b> ${ext.Codextin}</p>
-        <p><b>Esquadrão:</b> ${ext.Esquadrão}</p>
-        <p><b>Prédio:</b> ${ext.Prédio}</p>
-        <p><b>Local:</b> ${ext.Local}</p>
-        <p><b>Tipo:</b> ${ext.Tipo}</p>
-        <p><b>Capacidade:</b> ${ext.Capacidade}</p>
-        <p><b>Vistoriador:</b> ${ext.Vistoriador}</p>
-        <p><b>Data da Vistoria:</b> ${ext.DataVist}</p>
-        <p><b>Observações:</b> ${ext.Obs}</p>
-    `;
 }
 
-loadExtintor();
+// chama automaticamente ao abrir a página
+carregarDadosExtintor();
