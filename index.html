@@ -11,15 +11,19 @@ async function carregarDadosExtintor() {
         const ext = JSON.parse(text);
 
         // Substitui os campos no HTML
-        document.getElementById("codextin").innerText = ext.Codextin || "";
-        document.getElementById("esquadrao").innerText = ext.Esquadrão || "";
-        document.getElementById("predio").innerText = ext.Prédio || "";
-        document.getElementById("local").innerText = ext.Local || "";
-        document.getElementById("tipo").innerText = ext.Tipo || "";
-        document.getElementById("capacidade").innerText = ext.Capacidade || "";
-        document.getElementById("vistoriador").innerText = ext.Vistoriador || "";
-        document.getElementById("dataVist").innerText = ext.DataVist || "";
-        document.getElementById("obs").innerText = ext.Obs || "";
+    document.getElementById("conteudo").innerHTML = `
+        <h2>Dados do Extintor</h2>
+        <p><b>Código:</b> ${ext.Codextin}</p>
+        <p><b>Esquadrão:</b> ${ext.Esquadrão}</p>
+        <p><b>Prédio:</b> ${ext.Prédio}</p>
+        <p><b>Local:</b> ${ext.Local}</p>
+        <p><b>Tipo:</b> ${ext.Tipo}</p>
+        <p><b>Capacidade:</b> ${ext.Capacidade}</p>
+        <p><b>Vistoriador:</b> ${ext.Vistoriador}</p>
+        <p><b>Data da Vistoria:</b> ${ext.DataVist}</p>
+        <p><b>Observações:</b> ${ext.Obs}</p>
+    `;
+
     } catch (e) {
         console.error("Erro ao carregar dados:", e);
         document.getElementById("erro").innerText =
