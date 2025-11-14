@@ -1,35 +1,63 @@
 async function carregarDadosExtintor() {
-    const cod = "EXT001";  // código do extintor
-    const url = `https://script.google.com/macros/s/AKfycbysvNbJzTvgJ60pz5dQOfjME67gI0DXP0ZkLYq45GHEiiWIafS_TpUYiBFxXNqHkntcqg/exec?cod=${cod}`;
+
+    // pegar ?cod=EXT001 da URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const cod = urlParams.get("cod");
+
+    if (!cod) {
+        document.getElementById("conteudo").innerHTML = "<p>Nenhum código informado.</p>";
+        return;
+    }
+
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCuZ_eeAu4oDcAgxVR0kiZ2wuckk2O0giZP0JB44lcw1lfZd3gGVdXIZX0OdVzZSCMU/pub?output=csv";
 
     try {
-        // Faz a requisição ao Apps Script
-        const response = await fetch(url);
-        const text = await response.text();
+        const response = await fetch(csvUrl);
+        const csvText = await response.text();
 
-        // O web app retorna JSON puro
-        const ext = JSON.parse(text);
+        // Quebrar as linhas do CSV
+        const lines = csvText.split("\n").filter(l => l.trim().length > 0);
 
-        // Substitui os campos no HTML
-    document.getElementById("conteudo").innerHTML = `
-        <h2>Dados do Extintor</h2>
-        <p><b>Código:</b> ${ext.Codextin}</p>
-        <p><b>Esquadrão:</b> ${ext.Esquadrão}</p>
-        <p><b>Prédio:</b> ${ext.Prédio}</p>
-        <p><b>Local:</b> ${ext.Local}</p>
-        <p><b>Tipo:</b> ${ext.Tipo}</p>
-        <p><b>Capacidade:</b> ${ext.Capacidade}</p>
-        <p><b>Vistoriador:</b> ${ext.Vistoriador}</p>
-        <p><b>Data da Vistoria:</b> ${ext.DataVist}</p>
-        <p><b>Observações:</b> ${ext.Obs}</p>
-    `;
+        // Pegar cabeçalho
+        const header = lines.shift().split(",").map(h => h.trim());
+
+        // Converter cada linha em objeto
+        const data = lines.map(line => {
+            const values = line.split(",").map(v => v.trim());
+            const obj = {};
+            header.forEach((h, i) => {
+                obj[h] = values[i] || "";
+            });
+            return obj;
+        });
+
+        // Procurar o extintor pelo campo Codextin
+        const ext = data.find(item => item.Codextin.toUpperCase() === cod.toUpperCase());
+
+        if (!ext) {
+            document.getElementById("conteudo").innerHTML = `<p>Extintor ${cod} não encontrado.</p>`;
+            return;
+        }
+
+        // Exibir os dados
+        document.getElementById("conteudo").innerHTML = `
+            <h2>Dados do Extintor</h2>
+            <p><b>Código:</b> ${ext.Codextin}</p>
+            <p><b>Esquadrão:</b> ${ext.Esquadrão}</p>
+            <p><b>Prédio:</b> ${ext.Prédio}</p>
+            <p><b>Local:</b> ${ext.Local}</p>
+            <p><b>Tipo:</b> ${ext.Tipo}</p>
+            <p><b>Capacidade:</b> ${ext.Capacidade}</p>
+            <p><b>Vistoriador:</b> ${ext.Vistoriador}</p>
+            <p><b>Data da Vistoria:</b> ${ext.DataVist}</p>
+            <p><b>Observações:</b> ${ext.Obs}</p>
+        `;
 
     } catch (e) {
-        console.error("Erro ao carregar dados:", e);
-        document.getElementById("erro").innerText =
-            "Erro ao carregar os dados. Verifique o link do Web App e a permissão.";
+        console.error("Erro ao carregar:", e);
+        document.getElementById("conteudo").innerHTML = "<p>Erro ao carregar dados.</p>";
     }
 }
 
-// chama automaticamente ao abrir a página
+// Carregar ao abrir a página
 carregarDadosExtintor();
