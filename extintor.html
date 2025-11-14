@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Extintor</title>
+<style>
+    body { font-family: Arial; padding: 20px; }
+    .card { border: 1px solid #ccc; padding: 20px; border-radius: 8px; max-width: 500px; }
+    label { display: block; margin-top: 10px; }
+    input, select, textarea { width: 100%; padding: 6px; }
+    button { margin-top: 15px; padding: 10px; width: 100%; background: #007bff; color: white; border: none; border-radius: 5px; }
+</style>
+</head>
+<body>
+
+<h2>Dados do Extintor</h2>
+
+<div id="dados" class="card">Carregando...</div>
+
+<div id="vistoria" class="card" style="display:none; margin-top:20px;">
+    <h3>Registro de Vistoria</h3>
+    <form id="formVistoria">
+        <label>Vistoriador:</label>
+        <select name="vistoriador" required>
+            <option>S1 GUAZINA</option>
+            <option>S2 BRUNO PEREIRA</option>
+            <option>S2 CARVALHO</option>
+        </select>
+
+        <label>Data da Vistoria:</label>
+        <input type="date" name="datavist" id="datavist" required>
+
+        <label>Observações:</label>
+        <textarea name="obs"></textarea>
+
+        <input type="hidden" name="codextin" id="codextinForm">
+        <button type="submit">Salvar Vistoria</button>
+    </form>
+</div>
+
+<script>
+// ----------------------
+// 1. Ler parâmetro cod da URL
+// ----------------------
+const urlParams = new URLSearchParams(window.location.search);
+const cod = urlParams.get("cod");
+
+// ----------------------
+// 2. Buscar planilha publicada
+// ----------------------
+const sheetID = "COLOQUE_AQUI_O_ID";
+const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json`;
+
+fetch(url)
+.then(res => res.text())
+.then(text => {
+    const json = JSON.parse(text.substring(47, text.length - 2));
+    const rows = json.table.rows;
+
+    let ext = null;
+
+    rows.forEach(r => {
+        let c = r.c;
+        if (c[0] && c[0].v === cod) {
+            ext = {
+                Codextin: c[0].v,
+                Esquadrao: c[1]?.v,
+                Predio: c[2]?.v,
+                Local: c[3]?.v,
+                Tipo: c[4]?.v,
+                Capacidade: c[5]?.v,
+                Vistoriador: c[6]?.v,
+                DataVist: c[7]?.f || c[7]?.v,
+                Obs: c[8]?.v,
+            };
+        }
+    });
+
+    mostrarExtintor(ext);
+});
+
+// ----------------------
+// 3. Mostrar dados
+// ----------------------
+function mostrarExtintor(ext) {
+    if (!ext) {
+        document.getElementById("dados").innerHTML = "<b>Extintor não encontrado.</b>";
+        return;
+    }
+
+    document.getElementById("dados").innerHTML = `
+        <b>Código:</b> ${ext.Codextin}<br>
+        <b>Esquadrão:</b> ${ext.Esquadrao}<br>
+        <b>Prédio:</b> ${ext.Predio}<br>
+        <b>Local:</b> ${ext.Local}<br>
+        <b>Tipo:</b> ${ext.Tipo}<br>
+        <b>Capacidade:</b> ${ext.Capacidade}<br>
+        <b>Vistoriador:</b> ${ext.Vistoriador || "-"}<br>
+        <b>Data da Vistoria:</b> ${ext.DataVist || "-"}<br>
+        <b>Obs:</b> ${ext.Obs || "-"}<br><br>
+    `;
+
+    // usuário autorizado? (exemplo: ?cod=EXT001&auth=1)
+    if (urlParams.get("auth") === "1") {
+        document.getElementById("vistoria").style.display = "block";
+        document.getElementById("codextinForm").value = ext.Codextin;
+        document.getElementById("datavist").value = new Date().toISOString().slice(0,10);
+    }
+}
+
+// ----------------------
+// 4. Enviar vistoria via Google Forms
+// ----------------------
+document.getElementById("formVistoria").onsubmit = function(e) {
+    e.preventDefault();
+
+    // Configure seu Google Forms aqui!
+    const formURL = "URL_DO_SEU_FORM";
+
+    const formData = new FormData(e.target);
+
+    fetch(formURL, { method: "POST", body: formData })
+        .then(() => alert("Vistoria enviada com sucesso!"))
+        .catch(() => alert("Erro ao enviar."));
+};
+</script>
+
+</body>
+</html>
