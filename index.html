@@ -1,6 +1,5 @@
 async function carregarDadosExtintor() {
 
-    // pegar ?cod=EXT001 da URL
     const urlParams = new URLSearchParams(window.location.search);
     const cod = urlParams.get("cod");
 
@@ -15,13 +14,9 @@ async function carregarDadosExtintor() {
         const response = await fetch(csvUrl);
         const csvText = await response.text();
 
-        // Quebrar as linhas do CSV
         const lines = csvText.split("\n").filter(l => l.trim().length > 0);
-
-        // Pegar cabeçalho
         const header = lines.shift().split(",").map(h => h.trim());
 
-        // Converter cada linha em objeto
         const data = lines.map(line => {
             const values = line.split(",").map(v => v.trim());
             const obj = {};
@@ -31,7 +26,6 @@ async function carregarDadosExtintor() {
             return obj;
         });
 
-        // Procurar o extintor pelo campo Codextin
         const ext = data.find(item => item.Codextin.toUpperCase() === cod.toUpperCase());
 
         if (!ext) {
@@ -39,7 +33,6 @@ async function carregarDadosExtintor() {
             return;
         }
 
-        // Exibir os dados
         document.getElementById("conteudo").innerHTML = `
             <h2>Dados do Extintor</h2>
             <p><b>Código:</b> ${ext.Codextin}</p>
@@ -59,5 +52,4 @@ async function carregarDadosExtintor() {
     }
 }
 
-// Carregar ao abrir a página
 carregarDadosExtintor();
