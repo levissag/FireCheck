@@ -19,7 +19,7 @@ textarea{height:80px;}
 </head>
 <body>
 
-<h1>FireCheck 2S Levi</h1>
+<h1>FireCheck V1</h1>
 <div id="result" class="card">Carregando...</div>
 <div id="mensagem"></div>
 
@@ -32,7 +32,7 @@ async function carregarExtintor() {
     if(!cod){ document.getElementById("result").innerText="Código não informado."; return; }
 
     try{
-        const resp = await fetch(`${urlAPI}?cod=${cod}`);
+        const resp = await fetch(`${urlAPI}?cod=${cod}`, { method:"GET", mode:"cors" });
         const ext = await resp.json();
 
         if(ext.status==="not_found"){ document.getElementById("result").innerText="Extintor não encontrado."; return; }
@@ -65,14 +65,20 @@ async function carregarExtintor() {
                 <button class="btn" onclick="enviarVistoria('${cod}')">Salvar Vistoria</button>
             </div>
         `;
-    }catch(e){ console.error(e); document.getElementById("result").innerText="Erro ao carregar."; }
+    }catch(e){ 
+        console.error(e); 
+        document.getElementById("result").innerText="Erro ao carregar os dados. Verifique se o Apps Script está publicado e acessível.";
+    }
 }
 
 function validarSenha(){
     const senha = prompt("Digite a senha de vistoriador:");
     const senhaCorreta = "12345"; // mesma do Apps Script
-    if(senha===senhaCorreta){ document.getElementById("formVistoria").style.display="block"; }
-    else{ alert("Senha incorreta."); }
+    if(senha===senhaCorreta){ 
+        document.getElementById("formVistoria").style.display="block"; 
+    } else { 
+        alert("Senha incorreta."); 
+    }
 }
 
 async function enviarVistoria(cod){
@@ -88,13 +94,21 @@ async function enviarVistoria(cod){
         const resp = await fetch(urlAPI, {
             method:"POST",
             headers:{"Content-Type":"application/json"},
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            mode:"cors"
         });
         const result = await resp.json();
-        if(result.status==="ok"){ document.getElementById("mensagem").innerText="✔ Vistoria salva com sucesso!"; }
-        else if(result.status==="denied"){ alert("Senha incorreta."); }
-        else{ alert("Erro ao salvar: "+JSON.stringify(result)); }
-    }catch(e){ console.error(e); alert("Erro ao enviar vistoria: "+e); }
+        if(result.status==="ok"){ 
+            document.getElementById("mensagem").innerText="✔ Vistoria salva com sucesso!"; 
+        } else if(result.status==="denied"){ 
+            alert("Senha incorreta."); 
+        } else { 
+            alert("Erro ao salvar: "+JSON.stringify(result)); 
+        }
+    }catch(e){ 
+        console.error(e); 
+        alert("Erro ao enviar vistoria: "+e); 
+    }
 }
 
 carregarExtintor();
