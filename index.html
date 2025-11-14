@@ -12,63 +12,66 @@
     <div id="result">Carregando...</div>
 
     <script>
-        async function carregarExtintor() {
-            const params = new URLSearchParams(window.location.search);
-            const cod = params.get("cod"); // ex: ext001
-
-            if (!cod) {
-                document.getElementById("result").innerText = "Código não informado.";
-                return;
-            }
-
-            const urlCSV =
-                "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCuZ_eeAu4oDcAgxVR0kiZ2wuckk2O0giZP0JB44lcw1lfZd3gGVdXIZX0OdVzZSCMU/pub?output=csv";
-
-            try {
-                const response = await fetch(urlCSV);
-                const csv = await response.text();
-
-                // Quebra o CSV em linhas
-                const linhas = csv.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-
-                const colunas = linhas[0].split(",").map(c => c.trim()); // cabeçalhos
-
-                // Procura o extintor pelo Codextin
-                const alvo = linhas
-                    .slice(1)
-                    .map(linha => linha.split(","))
-                    .find(c => c[0].toLowerCase() === cod.toLowerCase());
-
-                if (!alvo) {
-                    document.getElementById("result").innerText =
-                        `Extintor "${cod}" não encontrado na planilha.`;
+        <script>
+            async function carregarExtintor() {
+                const params = new URLSearchParams(window.location.search);
+                const cod = params.get("cod");
+            
+                if (!cod) {
+                    document.getElementById("result").innerText = "Código não informado.";
                     return;
                 }
-
-                // Monta objeto
-                const ext = {};
-                colunas.forEach((nome, i) => {
-                    ext[nome] = alvo[i] || "";
-                });
-
-                // Exibe os dados
-                document.getElementById("result").innerHTML = `
-                    <p><b>Código:</b> ${ext.Codextin}</p>
-                    <p><b>Esquadrão:</b> ${ext.Esquadrão}</p>
-                    <p><b>Prédio:</b> ${ext.Prédio}</p>
-                    <p><b>Local:</b> ${ext.Local}</p>
-                    <p><b>Tipo:</b> ${ext.Tipo}</p>
-                    <p><b>Capacidade:</b> ${ext.Capacidade}</p>
-                    <p><b>Vistoriador:</b> ${ext.Vistoriador}</p>
-                    <p><b>Data da Vistoria:</b> ${ext.DataVist}</p>
-                    <p><b>Observações:</b> ${ext.Obs}</p>
-                `;
-            } catch (e) {
-                document.getElementById("result").innerText =
-                    "Erro ao carregar os dados.";
-                console.error(e);
+            
+                const urlCSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCuZ_eeAu4oDcAgxVR0kiZ2wuckk2O0giZP0JB44lcw1lfZd3gGVdXIZX0OdVzZSCMU/pub?output=csv";
+            
+                try {
+                    const response = await fetch(urlCSV);
+                    const csv = await response.text();
+            
+                    // --- PARSE SEGURO DE CSV ---
+                    const rows = csv
+                        .split(/\r?\n/)
+                        .map(l => l.split(/,(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)/));
+            
+                    const header = rows[0];
+            
+                    // procura linha correta
+                    const alvo = rows.find((r, i) =>
+                        i > 0 && r[0].toLowerCase() === cod.toLowerCase()
+                    );
+            
+                    if (!alvo) {
+                        document.getElementById("result").innerText = "Extintor não encontrado.";
+                        return;
+                    }
+            
+                    // monta objeto correto
+                    const ext = {};
+                    header.forEach((nome, i) => {
+                        ext[nome] = alvo[i] || "";
+                    });
+            
+                    // exibe
+                    document.getElementById("result").innerHTML = `
+                        <h2>Extintor ${ext.Codextin}</h2>
+                        <p><b>Esquadrão:</b> ${ext.Esquadrao}</p>
+                        <p><b>Prédio:</b> ${ext.Predio}</p>
+                        <p><b>Local:</b> ${ext.Local}</p>
+                        <p><b>Tipo:</b> ${ext.Tipo}</p>
+                        <p><b>Capacidade:</b> ${ext.Capacidade}</p>
+                        <p><b>Vistoriador:</b> ${ext.Vistoriador}</p>
+                        <p><b>Data da Vistoria:</b> ${ext.DataVist}</p>
+                        <p><b>Obs:</b> ${ext.Obs}</p>
+                    `;
+                } catch (e) {
+                    document.getElementById("result").innerText = "Erro ao carregar os dados.";
+                    console.error(e);
+                }
             }
-        }
+
+carregarExtintor();
+</script>
+
 
         carregarExtintor();
     </script>
