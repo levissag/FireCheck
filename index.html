@@ -111,7 +111,7 @@ async function carregarExtintor() {
         document.getElementById("result").innerHTML = `
             <h2>Dados do Extintor</h2>
 
-            <div class="linha"><b>Código:</b> ${ext.codextin}</div>
+            <div class="linha"><b>Código:</b> <span id="codextin">${ext.codextin}</span></div>
             <div class="linha"><b>Esquadrão:</b> ${ext.esquadrao}</div>
             <div class="linha"><b>Prédio:</b> ${ext.predio}</div>
             <div class="linha"><b>Local:</b> ${ext.local}</div>
@@ -150,7 +150,7 @@ async function carregarExtintor() {
 
 function validarSenha() {
     const senha = prompt("Digite a senha de vistoriador:");
-    const senhaCorreta = "1234"; // TROCAR DEPOIS
+    const senhaCorreta = "1234"; // TROQUE DEPOIS
 
     if (senha === senhaCorreta) {
         document.getElementById("formVistoria").style.display = "block";
@@ -159,8 +159,39 @@ function validarSenha() {
     }
 }
 
-function enviarVistoria() {
-    alert("⚠ Funcionalidade de envio ainda não configurada.\nPodemos enviar direto para o Google Sheets pelo Apps Script.");
+async function enviarVistoria() {
+
+    const dados = {
+        codextin: document.getElementById("codextin").innerText,
+        vistoriador: document.getElementById("vistoriador").value,
+        datavist: document.getElementById("dataVist").value,
+        obs: document.getElementById("obs").value
+    };
+
+    try {
+        const resposta = await fetch(
+            "https://script.google.com/macros/s/AKfycbyUsdcJabQdVpZAsPpJo1_VERLEpaIEaO3L5aFLvrZqp2rNaH6jpNH1pgF3v3ZfJGuH1A/exec",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dados)
+            }
+        );
+
+        const json = await resposta.json();
+
+        if (json.status === "ok") {
+            alert("✅ Vistoria registrada com sucesso!");
+            location.reload();
+        } else if (json.status === "not_found") {
+            alert("Extintor não encontrado.");
+        } else {
+            alert("Erro: " + json.message);
+        }
+
+    } catch (e) {
+        alert("Erro ao enviar vistoria: " + e);
+    }
 }
 
 carregarExtintor();
