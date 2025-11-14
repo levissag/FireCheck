@@ -18,7 +18,7 @@ const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCu
 // 3) FUNÇÃO PARA PROCESSAR O CSV
 //---------------------------------------------------
 function parseCSV(csvText) {
-    // Remove BOM e linhas vazias no início
+    // Remove BOM e linhas vazias
     csvText = csvText.replace(/^\uFEFF/, "").trim();
 
     const lines = csvText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
@@ -58,12 +58,12 @@ fetch(CSV_URL)
             return;
         }
 
-        // Montar o HTML
+        // Montar o HTML final
         const html = `
             <h2>Dados do Extintor</h2>
             <p><b>Código:</b> ${ext.Codextin}</p>
             <p><b>Esquadrão:</b> ${ext.Esquadrao || ext.Esquadrão || ""}</p>
-            <p><b>Prédio:</b> ${ext.Prédio || ext.Predio || ""}</p>
+            <p><b>Prédio:</b> ${ext.Predio || ext.Prédio || ""}</p>
             <p><b>Local:</b> ${ext.Local}</p>
             <p><b>Tipo:</b> ${ext.Tipo}</p>
             <p><b>Capacidade:</b> ${ext.Capacidade}</p>
