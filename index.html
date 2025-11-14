@@ -1,117 +1,45 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FireCheck</title>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f2f2f2;
-            padding: 20px;
-            color: #333;
-        }
-
-        .card {
-            background: white;
-            padding: 20px;
-            max-width: 450px;
-            margin: auto;
-            border-radius: 12px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
-        }
-
-        h1, h2 {
-            text-align: center;
-        }
-
-        .linha {
-            margin: 8px 0;
-            font-size: 16px;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 12px;
-            margin-top: 15px;
-            background: #0066cc;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        .btn:hover {
-            background: #004c99;
-        }
-
-        #formVistoria {
-            display: none;
-            margin-top: 20px;
-        }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 10px;
-            margin: 6px 0;
-            border-radius: 6px;
-            border: 1px solid #aaa;
-        }
-
-        textarea {
-            height: 80px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FireCheck</title>
+<style>
+body { font-family: Arial; background: #f2f2f2; padding:20px; color:#333;}
+.card { background:#fff; padding:20px; max-width:450px; margin:auto; border-radius:12px; box-shadow:0 3px 10px rgba(0,0,0,0.15);}
+h1,h2{text-align:center;}
+.linha{margin:8px 0; font-size:16px;}
+.btn{width:100%; padding:12px; margin-top:15px; background:#0066cc; color:#fff; border:none; border-radius:8px; font-size:16px; cursor:pointer; transition:0.2s;}
+.btn:hover{background:#004c99;}
+#formVistoria{display:none; margin-top:20px;}
+input,select,textarea{width:100%; padding:10px; margin:6px 0; border-radius:6px; border:1px solid #aaa;}
+textarea{height:80px;}
+#mensagem{margin-top:10px; text-align:center; font-weight:bold;}
+</style>
 </head>
-
 <body>
 
 <h1>FireCheck</h1>
-
-<div id="result" class="card">
-    Carregando...
-</div>
+<div id="result" class="card">Carregando...</div>
+<div id="mensagem"></div>
 
 <script>
-async function carregarExtintor() {
+const urlAPI = "https://script.google.com/macros/s/AKfycbyUsdcJabQdVpZAsPpJo1_VERLEpaIEaO3L5aFLvrZqp2rNaH6jpNH1pgF3v3ZfJGuH1A/exec";
 
+async function carregarExtintor() {
     const params = new URLSearchParams(window.location.search);
     const cod = params.get("cod");
+    if(!cod){ document.getElementById("result").innerText="Código não informado."; return; }
 
-    if (!cod) {
-        document.getElementById("result").innerText = "Código não informado.";
-        return;
-    }
+    try{
+        const resp = await fetch(`${urlAPI}?cod=${cod}`);
+        const ext = await resp.json();
 
-    const urlCSV =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCuZ_eeAu4oDcAgxVR0kiZ2wuckk2O0giZP0JB44lcw1lfZd3gGVdXIZX0OdVzZSCMU/pub?output=csv";
-
-    try {
-        const response = await fetch(urlCSV);
-        const csv = await response.text();
-
-        const linhas = csv.split("\n").map(l => l.trim());
-        const colunas = linhas[0].split(",").map(c => c.trim());
-        const registros = linhas.slice(1).map(l => l.split(","));
-        const alvo = registros.find(c => c[0].toLowerCase() === cod.toLowerCase());
-
-        if (!alvo) {
-            document.getElementById("result").innerText = "Extintor não encontrado.";
-            return;
-        }
-
-        const ext = {};
-        colunas.forEach((nome, i) => {
-            ext[nome] = (alvo[i] || "").trim();
-        });
+        if(ext.status==="not_found"){ document.getElementById("result").innerText="Extintor não encontrado."; return; }
 
         document.getElementById("result").innerHTML = `
             <h2>Dados do Extintor</h2>
-
-            <div class="linha"><b>Código:</b> <span id="codextin">${ext.codextin}</span></div>
+            <div class="linha"><b>Código:</b> ${ext.codextin}</div>
             <div class="linha"><b>Esquadrão:</b> ${ext.esquadrao}</div>
             <div class="linha"><b>Prédio:</b> ${ext.predio}</div>
             <div class="linha"><b>Local:</b> ${ext.local}</div>
@@ -124,75 +52,49 @@ async function carregarExtintor() {
 
             <div id="formVistoria">
                 <h3>Vistoria</h3>
-
-                <label><b>Vistoriador:</b></label>
+                <label>Vistoriador:</label>
                 <select id="vistoriador">
                     <option>S1 GUAZINA</option>
                     <option>S2 BRUNO PEREIRA</option>
                     <option>S2 CARVALHO</option>
                 </select>
-
-                <label><b>Data da Vistoria:</b></label>
+                <label>Data da Vistoria:</label>
                 <input type="date" id="dataVist" value="${new Date().toISOString().split("T")[0]}">
-
-                <label><b>Observações:</b></label>
+                <label>Observações:</label>
                 <textarea id="obs"></textarea>
-
-                <button class="btn" onclick="enviarVistoria()">Salvar Vistoria</button>
+                <button class="btn" onclick="enviarVistoria('${cod}')">Salvar Vistoria</button>
             </div>
         `;
-
-    } catch (e) {
-        console.error(e);
-        document.getElementById("result").innerText = "Erro ao carregar.";
-    }
+    }catch(e){ console.error(e); document.getElementById("result").innerText="Erro ao carregar."; }
 }
 
-function validarSenha() {
+function validarSenha(){
     const senha = prompt("Digite a senha de vistoriador:");
-    const senhaCorreta = "1234"; // TROQUE DEPOIS
-
-    if (senha === senhaCorreta) {
-        document.getElementById("formVistoria").style.display = "block";
-    } else {
-        alert("Senha incorreta.");
-    }
+    const senhaCorreta = "12345"; // mesma do Apps Script
+    if(senha===senhaCorreta){ document.getElementById("formVistoria").style.display="block"; }
+    else{ alert("Senha incorreta."); }
 }
 
-async function enviarVistoria() {
-
-    const params = new URLSearchParams(window.location.search);
-    const cod = params.get("cod");
-
+async function enviarVistoria(cod){
     const payload = {
         codextin: cod,
         vistoriador: document.getElementById("vistoriador").value,
         datavist: document.getElementById("dataVist").value,
-        obs: document.getElementById("obs").value
+        obs: document.getElementById("obs").value,
+        senha: "12345" // mesma do Apps Script
     };
 
-    try {
-        const resposta = await fetch(
-            "https://script.google.com/macros/s/AKfycbyUsdcJabQdVpZAsPpJo1_VERLEpaIEaO3L5aFLvrZqp2rNaH6jpNH1pgF3v3ZfJGuH1A/exec",
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            }
-        );
-
-        const data = await resposta.json();
-
-        if (data.status === "ok") {
-            alert("Vistoria salva com sucesso!");
-        } else {
-            alert("Erro: " + data.message);
-        }
-
-    } catch (e) {
-        alert("Erro ao enviar vistoria: " + e);
-        console.error(e);
-    }
+    try{
+        const resp = await fetch(urlAPI, {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify(payload)
+        });
+        const result = await resp.json();
+        if(result.status==="ok"){ document.getElementById("mensagem").innerText="✔ Vistoria salva com sucesso!"; }
+        else if(result.status==="denied"){ alert("Senha incorreta."); }
+        else{ alert("Erro ao salvar: "+JSON.stringify(result)); }
+    }catch(e){ console.error(e); alert("Erro ao enviar vistoria: "+e); }
 }
 
 carregarExtintor();
