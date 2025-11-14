@@ -1,43 +1,69 @@
-async function carregarDadosExtintor() {
+//---------------------------------------------------
+// 1) PEGAR O CÓDIGO DA URL (?cod=EXT001)
+//---------------------------------------------------
+const urlParams = new URLSearchParams(window.location.search);
+const cod = urlParams.get("cod");
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const cod = urlParams.get("cod");
+if (!cod) {
+    document.getElementById("result").innerHTML = "Código não informado na URL.";
+    throw new Error("Código não informado.");
+}
 
-    if (!cod) {
-        document.getElementById("conteudo").innerHTML = "<p>Nenhum código informado.</p>";
-        return;
-    }
+//---------------------------------------------------
+// 2) URL DO CSV PUBLICADO DO GOOGLE SHEETS
+//---------------------------------------------------
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCuZ_eeAu4oDcAgxVR0kiZ2wuckk2O0giZP0JB44lcw1lfZd3gGVdXIZX0OdVzZSCMU/pub?output=csv";
 
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTU0F86l8__VCCuZ_eeAu4oDcAgxVR0kiZ2wuckk2O0giZP0JB44lcw1lfZd3gGVdXIZX0OdVzZSCMU/pub?output=csv";
+//---------------------------------------------------
+// 3) FUNÇÃO PARA PROCESSAR O CSV
+//---------------------------------------------------
+function parseCSV(csvText) {
+    // Remove BOM e linhas vazias no início
+    csvText = csvText.replace(/^\uFEFF/, "").trim();
 
-    try {
-        const response = await fetch(csvUrl);
-        const csvText = await response.text();
+    const lines = csvText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
 
-        const lines = csvText.split("\n").filter(l => l.trim().length > 0);
-        const header = lines.shift().split(",").map(h => h.trim());
+    const headers = lines[0].split(",").map(h => h.trim());
+    const data = [];
 
-        const data = lines.map(line => {
-            const values = line.split(",").map(v => v.trim());
-            const obj = {};
-            header.forEach((h, i) => {
-                obj[h] = values[i] || "";
-            });
-            return obj;
+    for (let i = 1; i < lines.length; i++) {
+        const obj = {};
+        const row = lines[i].split(",");
+
+        headers.forEach((h, index) => {
+            obj[h] = row[index] ? row[index].trim() : "";
         });
 
-        const ext = data.find(item => item.Codextin.toUpperCase() === cod.toUpperCase());
+        data.push(obj);
+    }
+
+    return data;
+}
+
+//---------------------------------------------------
+// 4) BUSCAR O CSV E EXIBIR O EXTINTOR
+//---------------------------------------------------
+fetch(CSV_URL)
+    .then(response => response.text())
+    .then(csv => {
+        const lista = parseCSV(csv);
+
+        // Procurar o extintor ignorando maiúsc/minúsc
+        const ext = lista.find(e => 
+            e.Codextin && e.Codextin.toLowerCase() === cod.toLowerCase()
+        );
 
         if (!ext) {
-            document.getElementById("conteudo").innerHTML = `<p>Extintor ${cod} não encontrado.</p>`;
+            document.getElementById("result").innerHTML = "Extintor não encontrado.";
             return;
         }
 
-        document.getElementById("conteudo").innerHTML = `
+        // Montar o HTML
+        const html = `
             <h2>Dados do Extintor</h2>
             <p><b>Código:</b> ${ext.Codextin}</p>
-            <p><b>Esquadrão:</b> ${ext.Esquadrão}</p>
-            <p><b>Prédio:</b> ${ext.Prédio}</p>
+            <p><b>Esquadrão:</b> ${ext.Esquadrao || ext.Esquadrão || ""}</p>
+            <p><b>Prédio:</b> ${ext.Prédio || ext.Predio || ""}</p>
             <p><b>Local:</b> ${ext.Local}</p>
             <p><b>Tipo:</b> ${ext.Tipo}</p>
             <p><b>Capacidade:</b> ${ext.Capacidade}</p>
@@ -46,10 +72,9 @@ async function carregarDadosExtintor() {
             <p><b>Observações:</b> ${ext.Obs}</p>
         `;
 
-    } catch (e) {
-        console.error("Erro ao carregar:", e);
-        document.getElementById("conteudo").innerHTML = "<p>Erro ao carregar dados.</p>";
-    }
-}
-
-carregarDadosExtintor();
+        document.getElementById("result").innerHTML = html;
+    })
+    .catch(err => {
+        document.getElementById("result").innerHTML = "Erro ao carregar dados.";
+        console.error(err);
+    });
