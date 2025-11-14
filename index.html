@@ -161,8 +161,11 @@ function validarSenha() {
 
 async function enviarVistoria() {
 
-    const dados = {
-        codextin: document.getElementById("codextin").innerText,
+    const params = new URLSearchParams(window.location.search);
+    const cod = params.get("cod");
+
+    const payload = {
+        codextin: cod,
         vistoriador: document.getElementById("vistoriador").value,
         datavist: document.getElementById("dataVist").value,
         obs: document.getElementById("obs").value
@@ -174,23 +177,21 @@ async function enviarVistoria() {
             {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(dados)
+                body: JSON.stringify(payload)
             }
         );
 
-        const json = await resposta.json();
+        const data = await resposta.json();
 
-        if (json.status === "ok") {
-            alert("✅ Vistoria registrada com sucesso!");
-            location.reload();
-        } else if (json.status === "not_found") {
-            alert("Extintor não encontrado.");
+        if (data.status === "ok") {
+            alert("Vistoria salva com sucesso!");
         } else {
-            alert("Erro: " + json.message);
+            alert("Erro: " + data.message);
         }
 
     } catch (e) {
         alert("Erro ao enviar vistoria: " + e);
+        console.error(e);
     }
 }
 
