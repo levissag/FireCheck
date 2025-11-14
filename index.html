@@ -5,32 +5,31 @@ async function loadExtintor() {
     const response = await fetch(url);
     const text = await response.text();
 
-    // remove “lixo” antes e depois do JSON
+    // Extrai o JSON corretamente — sem substring fixa!
     const jsonText = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
     const data = JSON.parse(jsonText);
 
     const rows = data.table.rows.map(r => r.c.map(c => c ? c.v : ""));
     const header = data.table.cols.map(c => c.label);
 
-    const objetos = rows.map(row => {
+    const items = rows.map(r => {
         let obj = {};
-        row.forEach((val, i) => obj[header[i]] = val);
+        header.forEach((h, i) => obj[h] = r[i]);
         return obj;
     });
 
-    // Pegando o parâmetro cod da URL ?cod=EXT001
     const urlParams = new URLSearchParams(window.location.search);
     const cod = urlParams.get("cod");
 
     if (!cod) {
-        document.getElementById("conteudo").innerHTML = "Nenhum código informado.";
+        document.getElementById("conteudo").innerHTML = "Código não informado";
         return;
     }
 
-    const ext = objetos.find(x => x.Codextin == cod);
+    const ext = items.find(x => x.Codextin == cod);
 
     if (!ext) {
-        document.getElementById("conteudo").innerHTML = "Extintor não encontrado.";
+        document.getElementById("conteudo").innerHTML = "Extintor não encontrado";
         return;
     }
 
@@ -47,3 +46,5 @@ async function loadExtintor() {
         <p><b>Observações:</b> ${ext.Obs}</p>
     `;
 }
+
+loadExtintor();
