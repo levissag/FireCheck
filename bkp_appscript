@@ -1,0 +1,52 @@
+function doGet() {
+  return HtmlService.createHtmlOutput(`
+    <html>
+      <body style="font-family: Arial; padding: 20px;">
+        <h2>Atualizar célula I2</h2>
+
+        <label>Digite algo:</label><br>
+        <input id="texto" style="width: 300px; padding: 6px;"><br><br>
+
+        <button onclick="enviar()">Enviar</button>
+
+        <p id="status"></p>
+
+        <script>
+          function enviar() {
+            const valor = document.getElementById("texto").value;
+            if (!valor) {
+              alert("Digite algo primeiro!");
+              return;
+            }
+
+            google.script.run.withSuccessHandler(function(res){
+              document.getElementById("status").innerHTML = 
+                "Resposta: " + JSON.stringify(res);
+            }).atualizarPlanilha(valor);
+          }
+        </script>
+      </body>
+    </html>
+  `);
+}
+
+// Função chamada pelo formulário
+function atualizarPlanilha(texto) {
+  const ss = SpreadsheetApp.openById("1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I");
+  const sheet = ss.getSheetByName("extintores");
+
+  sheet.getRange("I2").setValue(texto);
+
+  return { status: "ok", msg: "I2 atualizada!" };
+}
+
+function doPost(e) {
+  const ss = SpreadsheetApp.openById("1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I");
+  const sheet = ss.getSheetByName("extintores");
+
+  sheet.getRange("I2").setValue("POST recebido: " + new Date());
+
+  return ContentService.createTextOutput(
+    JSON.stringify({ status: "ok", msg: "POST OK" })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
