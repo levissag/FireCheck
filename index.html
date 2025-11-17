@@ -174,31 +174,38 @@ function validarSenha() {
 // ENVIAR VISTORIA
 //--------------------------------------------
 async function enviarVistoria() {
-
     const payload = {
         codextin: codigoAtual,
         vistoriador: document.getElementById("vistoriador").value,
         datavist: document.getElementById("dataVist").value,
         obs: document.getElementById("obs").value,
-        senha: "12345"   // mesma senha no Apps Script
+        senha: "12345"
     };
 
     try {
-        await fetch(
-            "https://script.google.com/macros/s/AKfycbwr0E9GYCi_Xx1l5-zwbTTX34I3YyjEHjVdp0FUU2TliNTprlsW9m5aK1-g1rajwE_hGw/exec",
-            {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            }
-        );
-    
-        // Como no-cors não permite ler resposta:
-        alert("✔ Vistoria registrada! (envio silencioso)");
-        
+        const resp = await fetch("https://SEU-PROXY.workers.dev/", {   // <- substitua pela URL do Worker
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": "SUA_CHAVE_SECRETA_AQUI"  // mesma chave configurada no Worker
+            },
+            body: JSON.stringify(payload)
+        });
+
+        // Agora conseguimos ler a resposta JSON normalmente
+        const result = await resp.json();
+
+        if (result.status === "ok") {
+            alert("✔ Vistoria salva com sucesso!");
+        } else if (result.status === "denied") {
+            alert("Senha/API key incorreta.");
+        } else {
+            alert("Erro ao salvar: " + JSON.stringify(result));
+        }
+
     } catch (e) {
-        alert("Erro inesperado ao enviar: " + e);
+        console.error(e);
+        alert("Erro ao enviar vistoria: " + e);
     }
 }
 
