@@ -76,10 +76,18 @@
 </div>
 
 <script>
+
+let codigoAtual = ""; // código do extintor
+
+//--------------------------------------------
+// CARREGAR EXTINTOR
+//--------------------------------------------
 async function carregarExtintor() {
 
     const params = new URLSearchParams(window.location.search);
     const cod = params.get("cod");
+
+    codigoAtual = cod; // SALVA O CÓDIGO AQUI!
 
     if (!cod) {
         document.getElementById("result").innerText = "Código não informado.";
@@ -148,9 +156,12 @@ async function carregarExtintor() {
     }
 }
 
+//--------------------------------------------
+// SENHA
+//--------------------------------------------
 function validarSenha() {
     const senha = prompt("Digite a senha de vistoriador:");
-    const senhaCorreta = "1234"; // TROCAR DEPOIS
+    const senhaCorreta = "1234"; // ajustar depois
 
     if (senha === senhaCorreta) {
         document.getElementById("formVistoria").style.display = "block";
@@ -159,12 +170,49 @@ function validarSenha() {
     }
 }
 
-function enviarVistoria() {
-    alert("⚠ Funcionalidade de envio ainda não configurada.\nPodemos enviar direto para o Google Sheets pelo Apps Script.");
+//--------------------------------------------
+// ENVIAR VISTORIA
+//--------------------------------------------
+async function enviarVistoria() {
+
+    const payload = {
+        codextin: codigoAtual,
+        vistoriador: document.getElementById("vistoriador").value,
+        datavist: document.getElementById("dataVist").value,
+        obs: document.getElementById("obs").value,
+        senha: "12345"   // mesma senha no Apps Script
+    };
+
+    try {
+        const resp = await fetch(
+            "https://script.google.com/macros/s/AKfycbyUsdcJabQdVpZAsPpJo1_VERLEpaIEaO3L5aFLvrZqp2rNaH6jpNH1pgF3v3ZfJGuH1A/exec",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }
+        );
+
+        const result = await resp.json();
+
+        if (result.status === "ok") {
+            alert("✔ Vistoria salva com sucesso!");
+        } 
+        else if (result.status === "denied") {
+            alert("Senha incorreta.");
+        } 
+        else {
+            alert("Erro ao salvar: " + JSON.stringify(result));
+        }
+
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao enviar vistoria: " + e);
+    }
 }
 
-carregarExtintor();
+carregarExtintor(); // inicia ao abrir a página
+    
 </script>
-
 </body>
 </html>
