@@ -1,0 +1,243 @@
+function doGet(e) {
+  const cod = e.parameter.cod;
+  if (!cod) return HtmlService.createHtmlOutput("Código do extintor não informado.");
+
+  const ss = SpreadsheetApp.openById("1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I");
+  const sheet = ss.getSheetByName("extintores");
+  const data = sheet.getDataRange().getValues();
+  const header = data[0];
+
+  const idxCod = header.indexOf("codextin");
+  const idxEsquadrao = header.indexOf("esquadrao");
+  const idxPredio = header.indexOf("predio");
+  const idxLocal = header.indexOf("local");
+  const idxTipo = header.indexOf("tipo");
+  const idxCapacidade = header.indexOf("capacidade");
+  const idxDataVist = header.indexOf("datavist");   // <-- ADICIONADO
+
+    // Procurar extintor
+  let ext = null;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idxCod]).toLowerCase() === cod.toLowerCase()) {
+      ext = {
+        codextin: data[i][idxCod],
+        esquadrao: data[i][idxEsquadrao],
+        predio: data[i][idxPredio],
+        local: data[i][idxLocal],
+        tipo: data[i][idxTipo],
+        capacidade: data[i][idxCapacidade],
+        datavist: data[i][idxDataVist] ? Utilities.formatDate(new Date(data[i][idxDataVist]), Session.getScriptTimeZone(), "dd/MM/yyyy"): "—"
+      };
+      break;
+    }
+  }
+
+  if (!ext) return HtmlService.createHtmlOutput("<center><h3>Extintor não encontrado.</h3></center>");
+
+  // --- Calcular status da última vistoria (servidor) ---
+  let statusVistoriaHtml = "";
+  if (!ext.datavist || ext.datavist === "—") {
+    statusVistoriaHtml = `<span style="color: red; font-weight: bold;">Sem registro de vistoria</span>`;
+  } else {
+    // tenta extrair dd/mm/yyyy com regex
+    const m = ext.datavist.match(/^\s*(\d{2})\/(\d{2})\/(\d{4})\s*$/);
+    if (!m) {
+      statusVistoriaHtml = `<span style="color: orange; font-weight: bold;">Data inválida</span>`;
+    } else {
+      const d = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const y = parseInt(m[3], 10);
+      const dataV = new Date(y, mo, d);
+      const hoje = new Date();
+      const diff = Math.floor((hoje - dataV) / (1000 * 60 * 60 * 24));
+
+      if (isNaN(diff)) {
+        statusVistoriaHtml = `<span style="color: orange; font-weight: bold;">Data inválida</span>`;
+      } else if (diff > 30) {
+        statusVistoriaHtml = `<span style="color: red; font-weight: bold;">⚠️ VENCIDO há ${diff} dias</span>`;
+      } else {
+        const restantes = 30 - diff;
+        statusVistoriaHtml = `<span style="color: #00e676; font-weight: bold;">✔ Dentro da validade (${restantes} dias restantes)</span>`;
+      }
+    }
+  }
+
+
+  // HTML
+  return HtmlService.createHtmlOutput(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FireCheck - ${ext.codextin}</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+  body { 
+    padding: 20px; 
+    background: #121212;
+    color: #f1f1f1;
+  }
+  .card {
+    max-width: 500px; 
+    margin: auto; 
+    background: #1e1e1e;
+    border-radius: 10px;
+    color: #fff;
+  }
+  .list-group-item {
+    background: #1e1e1e;
+    color: #fff;
+    border-color: #333;
+  }
+  .btn-primary { background: #1976d2; border: none; }
+  .btn-success { background: #2e7d32; border: none; }
+  img.logo {
+    width: 140px;
+    display: block;
+    margin: 0 auto 15px auto;
+  }
+</style>
+</head>
+<body>
+
+<div class="card shadow-sm p-4">
+
+  <!-- LOGO -->
+  <img class="logo" src="https://lh3.googleusercontent.com/d/1ZEgGnq6-B7feBj4to-ke1oiNRpdJftVl">
+  <h2 class="text-center mb-2">FireCheck</h2>
+  <h4 class="text-center mb-3">Célula de Contraincêndio</h4>
+
+  <hr style="border-color:#444; margin: 20px 0;">
+
+  <h5 class="text-center mb-4">Dados do Extintor - ${ext.codextin}</h5>
+  <ul class="list-group mb-3">
+    <li class="list-group-item"><b>Esquadrão:</b> ${ext.esquadrao}</li>
+    <li class="list-group-item"><b>Prédio:</b> ${ext.predio}</li>
+    <li class="list-group-item"><b>Local:</b> ${ext.local}</li>
+    <li class="list-group-item"><b>Tipo:</b> ${ext.tipo}</li>
+    <li class="list-group-item"><b>Capacidade:</b> ${ext.capacidade}</li>
+    <li class="list-group-item"><b>Última Vistoria:</b> ${ext.datavist}<br>${statusVistoriaHtml}</li>
+  </ul>
+
+  <button class="btn btn-primary w-100 mb-3" onclick="validarSenha()">Validar para atualizar</button>
+
+  <div id="formVistoria" style="display:none;">
+    <h5><center>Registrar Vistoria</center></h5>
+
+    <div class="mb-2">
+      <label class="form-label">Vistoriador:</label>
+      <input type="text" class="form-control" id="vistoriador" readonly>
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label">Data da Vistoria:</label>
+      <input type="date" class="form-control" id="dataVist"
+        value="${new Date().toISOString().split('T')[0]}"
+        min="${new Date().toISOString().split('T')[0]}"
+        max="${new Date().toISOString().split('T')[0]}">
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label">Observações:</label>
+      <textarea class="form-control" id="obs" rows="3"></textarea>
+    </div>
+
+    <button class="btn btn-success w-100" onclick="enviar()">Salvar Vistoria</button>
+    <p id="status" class="mt-2"></p>
+  </div>
+</div>
+
+<script>
+function validarSenha() {
+  const cpf = prompt("Digite seu CPF para autenticação:");
+
+  if (!cpf) {
+    alert("CPF não informado.");
+    return;
+  }
+
+  google.script.run.withSuccessHandler(function(res) {
+    if (!res.ok) {
+      alert("CPF inválido.");
+      return;
+    }
+
+    // Preenche VISTORIADOR automaticamente com o nome
+    document.getElementById("vistoriador").value = res.nome;
+    document.getElementById("formVistoria").style.display = "block";
+
+  }).validarCPF(cpf);
+}
+
+function enviar() {
+  const payload = {
+    codextin: "${ext.codextin}",
+    vistoriador: document.getElementById("vistoriador").value,
+    datavist: document.getElementById("dataVist").value,
+    obs: document.getElementById("obs").value
+  };
+
+  google.script.run.withSuccessHandler(function(res) {
+    document.getElementById("status").innerText = res.msg;
+  }).salvarVistoria(payload);
+}
+</script>
+
+</body>
+</html>
+  `);
+}
+
+function validarCPF(cpf) {
+  cpf = String(cpf).replace(/\D/g, "").trim(); // remove pontos/traços/espaços
+
+  const ss = SpreadsheetApp.openById("1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I");
+  const sheet = ss.getSheetByName("var_vistor");
+
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const nome = data[i][0]; // Coluna A
+    const cpfPlanilha = String(data[i][1]).replace(/\D/g, "").trim(); // Coluna B LIMPO
+
+    if (cpfPlanilha === cpf) {
+      return { ok: true, nome: nome };
+    }
+  }
+
+  return { ok: false, msg: "CPF não encontrado." };
+}
+
+function salvarVistoria(dados) {
+  try {
+    const ss = SpreadsheetApp.openById("1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I");
+    const sheet = ss.getSheetByName("extintores");
+
+    const data = sheet.getDataRange().getValues();
+    const header = data[0];
+    const idxCod = header.indexOf("codextin");
+    const idxVist = header.indexOf("vistoriador") || 7;
+    const idxDataVist = header.indexOf("datavist") || 8;
+    const idxObs = header.indexOf("obs") || 9;
+
+    let linha = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idxCod]).toLowerCase() === dados.codextin.toLowerCase()) {
+        linha = i + 1;
+        break;
+      }
+    }
+
+    if (linha === -1) return { status: "error", msg: "Extintor não encontrado" };
+
+    sheet.getRange(linha, idxVist + 1).setValue(dados.vistoriador);
+    sheet.getRange(linha, idxDataVist + 1).setValue(dados.datavist);
+    sheet.getRange(linha, idxObs + 1).setValue(dados.obs);
+
+    return { status: "ok", msg: "Vistoria salva com sucesso" };
+  } catch (err) {
+    return { status: "error", msg: err.toString() };
+  }
+}
