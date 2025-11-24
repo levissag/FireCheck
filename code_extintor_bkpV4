@@ -1,0 +1,597 @@
+function doGet(e) {
+  const cod = e.parameter.cod;
+  if (!cod) return HtmlService.createHtmlOutput("Código do extintor não informado.");
+
+  const ss = SpreadsheetApp.openById("1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I");
+  const sheet = ss.getSheetByName("extintores");
+  const data = sheet.getDataRange().getValues();
+  const header = data[0];
+
+  const idxCod = header.indexOf("codextin");
+  const idxEsquadrao = header.indexOf("esquadrao");
+  const idxPredio = header.indexOf("predio");
+  const idxLocal = header.indexOf("local");
+  const idxTipo = header.indexOf("tipo");
+  const idxCapacidade = header.indexOf("capacidade");
+  const idxDataVist = header.indexOf("datavist");   // <-- ADICIONADO
+
+    // Procurar extintor
+  let ext = null;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idxCod]).toLowerCase() === cod.toLowerCase()) {
+      ext = {
+        codextin: data[i][idxCod],
+        esquadrao: data[i][idxEsquadrao],
+        predio: data[i][idxPredio],
+        local: data[i][idxLocal],
+        tipo: data[i][idxTipo],
+        capacidade: data[i][idxCapacidade],
+        datavist: data[i][idxDataVist] ? Utilities.formatDate(new Date(data[i][idxDataVist]), Session.getScriptTimeZone(), "dd/MM/yyyy"): "—"
+      };
+      break;
+    }
+  }
+
+  if (!ext) return HtmlService.createHtmlOutput("<center><h3>Extintor não encontrado.</h3></center>");
+
+  // --- Calcular status da última vistoria (servidor) ---
+  let statusVistoriaHtml = "";
+  if (!ext.datavist || ext.datavist === "—") {
+    statusVistoriaHtml = `<span style="color: red; font-weight: bold;">Sem registro de vistoria</span>`;
+  } else {
+    // tenta extrair dd/mm/yyyy com regex
+    const m = ext.datavist.match(/^\s*(\d{2})\/(\d{2})\/(\d{4})\s*$/);
+    if (!m) {
+      statusVistoriaHtml = `<span style="color: orange; font-weight: bold;">Data inválida</span>`;
+    } else {
+      const d = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const y = parseInt(m[3], 10);
+      const dataV = new Date(y, mo, d);
+      const hoje = new Date();
+      const diff = Math.floor((hoje - dataV) / (1000 * 60 * 60 * 24));
+
+      if (isNaN(diff)) {
+        statusVistoriaHtml = `<span style="color: orange; font-weight: bold;">Data inválida</span>`;
+      } else if (diff > 30) {
+        statusVistoriaHtml = `<span style="color: red; font-weight: bold;">⚠️ VENCIDO há ${diff} dias</span>`;
+      } else {
+        const restantes = 30 - diff;
+        statusVistoriaHtml = `<span style="color: #00e676; font-weight: bold;">✔ Dentro da validade (${restantes} dias restantes)</span>`;
+      }
+    }
+  }
+
+
+  // HTML
+return HtmlService.createHtmlOutput(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>FireCheck - ${ext.codextin}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+    /* ================================================
+      TEMA
+    ================================================ */
+    :root {
+      --azul-fab: #5d8aa8;
+      --azul-fab-dark: #3e5e70;
+      --vermelho-ci: #d32f2f;
+      --vermelho-ci-dark: #a62626;
+      --background: #0f1217;
+      --card-bg: #1a1d24;
+      --text-light: #f1f1f1;
+    }
+
+    /* ================================================
+      TELA DE CARREGAMENTO
+    ================================================ */
+    #loader {
+      position: fixed;
+      inset: 0;
+      background: var(--background);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      animation: fadeOutLoader 0.8s ease 0.7s forwards;
+    }
+
+    @keyframes fadeOutLoader {
+      to { opacity: 0; visibility: hidden; }
+    }
+
+    .loader-ring {
+      width: 55px;
+      height: 55px;
+      border: 5px solid var(--azul-fab);
+      border-top-color: var(--vermelho-ci);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ================================================
+      ANIMAÇÕES BASE
+    ================================================ */
+    .fade-in {
+      animation: fadeIn 0.6s ease forwards;
+      opacity: 0;
+    }
+    @keyframes fadeIn { to { opacity: 1; } }
+
+    .slide-up {
+      animation: slideUp 0.5s ease forwards;
+      transform: translateY(15px);
+      opacity: 0;
+    }
+    @keyframes slideUp {
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Form abrindo */
+    .expand {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.5s ease, opacity 0.5s ease;
+    }
+    .expand.show {
+      max-height: 500px;
+      opacity: 1;
+    }
+
+    /* ================================================
+      ESTILO DO LAYOUT
+    ================================================ */
+    body {
+      padding: 20px;
+      background: var(--background);
+      color: var(--text-light);
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+      margin: auto;
+      background: var(--card-bg);
+      border-radius: 16px;
+      color: var(--text-light);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    .card:hover {
+      transition: 0.3s;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+    }
+
+    img.logo {
+      width: 150px;
+      display: block;
+      margin: 0 auto 15px auto;
+      filter: drop-shadow(0px 0px 3px rgba(255,255,255,0.15));
+    }
+
+    /* Botões */
+    .btn-primary {
+      background: var(--azul-fab);
+      border: none;
+    }
+    .btn-primary:hover {
+      background: var(--azul-fab-dark);
+    }
+
+    /* BOTÃO SALVAR – VERDE */
+    .btn-success {
+      background: #28a745 !important;
+      border: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-success:hover {
+      background: #218838 !important;
+    }
+
+    /* Ripple verde + azul FAB */
+    .btn-success::after {
+      content: "";
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      background: var(--azul-fab);
+      opacity: 0.45;
+      border-radius: 50%;
+      transform: scale(1);
+      animation: none;
+    }
+    .btn-success:active::after {
+      left: var(--x);
+      top: var(--y);
+      animation: ripple 0.6s ease-out forwards;
+    }
+
+    @keyframes ripple {
+      from { transform: scale(1); opacity: 0.6; }
+      to   { transform: scale(40); opacity: 0; }
+    }
+
+    /* Campos */
+    .form-control {
+      background: #111318;
+      color: var(--text-light);
+      border: 1px solid #333;
+    }
+    .form-control:focus {
+      border-color: var(--azul-fab);
+      box-shadow: 0 0 5px var(--azul-fab);
+    }
+
+    /* Linha */
+    hr {
+      border: 0;
+      border-top: 2px solid var(--vermelho-ci);
+      opacity: 0.7;
+    }
+
+    /* DADOS DO EXTINTOR – LEITURA MELHORADA */
+    .list-group-item {
+      background: #1f232b;
+      color: #ffffff;
+      border-color: #333;
+    }
+    .list-group-item b {
+      color: #ffffff !important; /* rótulos em branco */
+    }
+    .list-group-item span.valor {
+      color: var(--azul-fab) !important; /* valores da planilha em azul FAB */
+    }
+
+    /* Responsivo */
+    @media (max-width: 480px) {
+      .card {
+        max-width: 100% !important;
+        border-radius: 0;
+      }
+      body {
+        padding: 10px;
+      }
+      h2 { font-size: 1.4rem; }
+      h5 { font-size: 1.2rem; }
+    }
+
+    .modal-backdrop {
+      z-index: 1040 !important;
+    }
+
+    .modal {
+      z-index: 1050 !important;
+    }
+
+    .sucesso {
+      animation: sucessoPulse 0.6s ease-in-out;
+    }
+
+    @keyframes sucessoPulse {
+      0%   { transform: scale(1);   opacity: 0.3; }
+      50%  { transform: scale(1.1); opacity: 1;   }
+      100% { transform: scale(1);   opacity: 1;   }
+    }
+
+    </style>
+
+  </head>
+
+  <body>
+
+    <!-- LOADING DO SALVAMENTO -->
+    <div id="savingLoader" style="
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1030;
+      backdrop-filter: blur(2px);
+    ">
+      <div style="
+        width: 55px;
+        height: 55px;
+        border: 5px solid #28a745;
+        border-top-color: var(--azul-fab);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      "></div>
+    </div>
+
+    <!-- ===================== LOADER ===================== -->
+    <div id="loader">
+      <img class="logo" src="https://lh3.googleusercontent.com/d/1hbPm6NfCiGKKOoSaCp3d0XWA_08io6yQ">
+      <div class="loader-ring"></div>
+    </div>
+
+
+    <!-- ===================== CARD PRINCIPAL ===================== -->
+    <div class="card shadow-sm p-4 fade-in">
+
+      <img class="logo" src="https://lh3.googleusercontent.com/d/1hbPm6NfCiGKKOoSaCp3d0XWA_08io6yQ">
+
+      <h2 class="text-center mb-2">FireCheck</h2>
+      <h4 class="text-center mb-3">Célula de Contraincêndio</h4>
+
+      <hr>
+
+      <h5 class="text-center mb-4">
+        Dados do Extintor – <span style="color: var(--vermelho-ci);">${ext.codextin}</span>
+      </h5>
+
+      <ul class="list-group mb-3">
+        <li class="list-group-item"><b>Esquadrão:</b> <span class="valor">${ext.esquadrao}</span></li>
+        <li class="list-group-item"><b>Prédio:</b> <span class="valor">${ext.predio}</span></li>
+        <li class="list-group-item"><b>Local:</b> <span class="valor">${ext.local}</span></li>
+        <li class="list-group-item"><b>Tipo:</b> <span class="valor">${ext.tipo}</span></li>
+        <li class="list-group-item"><b>Capacidade:</b> <span class="valor">${ext.capacidade}</span></li>
+        <li class="list-group-item">
+          <b>Última Vistoria:</b> <span class="valor">${ext.datavist}</span><br>${statusVistoriaHtml}
+        </li>
+      </ul>
+
+      <button class="btn btn-primary w-100 mb-3" onclick="validarSenha()">Validar para Atualizar</button>
+
+    <!-- ===================== MODAL DO FORMULÁRIO ===================== -->
+    <div class="modal fade" id="modalVistoria" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="background: var(--card-bg); color: var(--text-light); border: 1px solid #333;">
+
+          <div class="modal-header">
+            <h5 class="modal-title">Registrar Vistoria – ${ext.codextin}</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+
+            <!-- FORMULÁRIO DENTRO DA MODAL -->
+            <div class="mb-2">
+              <label class="form-label">Esquadrão:</label>
+              <select class="form-control" id="esquadrao">
+                <option value="3/3 GAV"   ${ext.esquadrao === "3/3 GAV" ? "selected" : ""}>3/3 GAV</option>
+                <option value="2/10 GAV"  ${ext.esquadrao === "2/10 GAV" ? "selected" : ""}>2/10 GAV</option>
+                <option value="1/15 GAV"  ${ext.esquadrao === "1/15 GAV" ? "selected" : ""}>1/15 GAV</option>
+                <option value="CMD"       ${ext.esquadrao === "CMD" ? "selected" : ""}>CMD</option>
+                <option value="GSD"       ${ext.esquadrao === "GSD" ? "selected" : ""}>GSD</option>
+                <option value="GOP"       ${ext.esquadrao === "GOP" ? "selected" : ""}>GOP</option>
+                <option value="GSB"       ${ext.esquadrao === "GSB" ? "selected" : ""}>GSB</option>
+                <option value="GSAU"      ${ext.esquadrao === "GSAU" ? "selected" : ""}>GSAU</option>
+                <option value="GLOG"      ${ext.esquadrao === "GLOG" ? "selected" : ""}>GLOG</option>
+                <option value="EAS"       ${ext.esquadrao === "EAS" ? "selected" : ""}>EAS</option>
+                <option value="PACG"      ${ext.esquadrao === "PACG" ? "selected" : ""}>PACG</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Prédio:</label>
+              <input type="text" class="form-control" id="predio" value="${ext.predio}">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Local:</label>
+              <input type="text" class="form-control" id="local" value="${ext.local}">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Tipo:</label>
+              <select class="form-control" id="tipo">
+                <option value="CO2"      ${ext.tipo === "CO2" ? "selected" : ""}>CO2</option>
+                <option value="AGUA"     ${ext.tipo === "AGUA" ? "selected" : ""}>ÁGUA</option>
+                <option value="PQ BC"    ${ext.tipo === "PQ BC" ? "selected" : ""}>PQ BC</option>
+                <option value="PQ ABC"   ${ext.tipo === "PQ ABC" ? "selected" : ""}>PQ ABC</option>
+                <option value="PQS ABC"  ${ext.tipo === "PQS ABC" ? "selected" : ""}>PQS ABC</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Capacidade:</label>
+              <select class="form-control" id="capacidade">
+                <option value="10L"  ${ext.capacidade === "10L" ? "selected" : ""}>10L</option>
+                <option value="4KG"  ${ext.capacidade === "4KG" ? "selected" : ""}>4KG</option>
+                <option value="6KG"  ${ext.capacidade === "6KG" ? "selected" : ""}>6KG</option>
+                <option value="10KG" ${ext.capacidade === "10KG" ? "selected" : ""}>10KG</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Vistoriador:</label>
+              <input type="text" class="form-control" id="vistoriador" readonly>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Data da Vistoria:</label>
+              <input type="date" class="form-control" id="dataVist"
+                value="${new Date().toISOString().split('T')[0]}"
+                min="${new Date().toISOString().split('T')[0]}"
+                max="${new Date().toISOString().split('T')[0]}">
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label">Observações:</label>
+              <textarea class="form-control" id="obs" rows="3"></textarea>
+            </div>
+
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-success w-100" onclick="enviar(event)">Salvar Vistoria</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    /* ===================== VALIDAR CPF ===================== */
+    function validarSenha() {
+      // Remove qualquer overlay ou loader travado
+      document.getElementById("loader").style.display = "none";
+      document.querySelector(".modal-backdrop")?.remove();
+      document.body.classList.remove("modal-open");
+      const cpf = prompt("Digite seu CPF para autenticação:");
+      if (!cpf) return alert("CPF não informado.");
+
+      google.script.run.withSuccessHandler(function(res) {
+        if (!res.ok) return alert("CPF inválido.");
+
+        document.getElementById("vistoriador").value = res.nome;
+
+        // ➜ ABRIR MODAL
+        const modal = new bootstrap.Modal(document.getElementById("modalVistoria"));
+        modal.show();
+        setTimeout(() => {
+          document.querySelector(".modal-backdrop")?.remove();
+          document.body.classList.remove("modal-open");
+        }, 50);
+
+
+      }).validarCPF(cpf);
+    }
+
+    /* ===================== RIPPLES E ENVIO ===================== */
+    function enviar(e) {
+
+      // Ripples no clique
+      const btn = e.target;
+      const rect = btn.getBoundingClientRect();
+      btn.style.setProperty('--x', (e.clientX - rect.left) + "px");
+      btn.style.setProperty('--y', (e.clientY - rect.top) + "px");
+
+      // ➜ MOSTRAR LOADING
+      document.getElementById("savingLoader").style.display = "flex";
+
+      const payload = {
+        codextin: "${ext.codextin}",
+
+        esquadrao: document.getElementById("esquadrao").value,
+        predio: document.getElementById("predio").value,
+        local: document.getElementById("local").value,
+        tipo: document.getElementById("tipo").value,
+        capacidade: document.getElementById("capacidade").value,
+
+        vistoriador: document.getElementById("vistoriador").value,
+        datavist: document.getElementById("dataVist").value,
+        obs: document.getElementById("obs").value
+      };
+
+      google.script.run.withSuccessHandler(function (res) {
+
+      document.getElementById("savingLoader").style.display = "none";
+
+      // fechar a modal
+      const modalEl = document.getElementById("modalVistoria");
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      modal.hide();
+      document.querySelector(".modal-backdrop")?.remove();
+      document.body.classList.remove("modal-open");
+
+      // feedback visual
+      const status = document.getElementById("status");
+      status.innerText = res.msg;
+      status.style.color = "#28a745";
+
+      // animação rápida de sucesso
+      status.classList.add("sucesso");
+      setTimeout(() => status.classList.remove("sucesso"), 1200);
+
+      }).salvarVistoria(payload);
+
+    }
+
+    </script>
+
+  </body>
+
+</html>
+`);
+}
+
+function validarCPF(cpf) {
+  cpf = String(cpf).replace(/\D/g, "").trim(); // remove pontos/traços/espaços
+
+  const ss = SpreadsheetApp.openById("1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I");
+  const sheet = ss.getSheetByName("var_vistor");
+
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const nome = data[i][0]; // Coluna A
+    const cpfPlanilha = String(data[i][1]).replace(/\D/g, "").trim(); // Coluna B LIMPO
+
+    if (cpfPlanilha === cpf) {
+      return { ok: true, nome: nome };
+    }
+  }
+
+  return { ok: false, msg: "CPF não encontrado." };
+}
+
+function salvarVistoria(dados) {
+  try {
+    const ss = SpreadsheetApp.openById("1iMx5Mc4-ayuoE95p5Kg4yqTp8peNHWNYRdeszSdPK8I");
+    const sheet = ss.getSheetByName("extintores");
+
+    const data = sheet.getDataRange().getValues();
+    const header = data[0];
+
+    // Índices das colunas
+    const idxCod = header.indexOf("codextin");
+
+    const idxEsq = header.indexOf("esquadrao");
+    const idxPred = header.indexOf("predio");
+    const idxLocal = header.indexOf("local");
+    const idxTipo = header.indexOf("tipo");
+    const idxCap = header.indexOf("capacidade");
+
+    const idxVist = header.indexOf("vistoriador");
+    const idxDataVist = header.indexOf("datavist");
+    const idxObs = header.indexOf("obs");
+
+    // Encontrar linha do extintor
+    let linha = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][idxCod]).toLowerCase() === dados.codextin.toLowerCase()) {
+        linha = i + 1;
+        break;
+      }
+    }
+
+    if (linha === -1) 
+      return { status: "error", msg: "Extintor não encontrado" };
+
+    // Atualizar dados
+    sheet.getRange(linha, idxEsq + 1).setValue(dados.esquadrao);
+    sheet.getRange(linha, idxPred + 1).setValue(dados.predio);
+    sheet.getRange(linha, idxLocal + 1).setValue(dados.local);
+    sheet.getRange(linha, idxTipo + 1).setValue(dados.tipo);
+    sheet.getRange(linha, idxCap + 1).setValue(dados.capacidade);
+
+    sheet.getRange(linha, idxVist + 1).setValue(dados.vistoriador);
+    sheet.getRange(linha, idxDataVist + 1).setValue(dados.datavist);
+    sheet.getRange(linha, idxObs + 1).setValue(dados.obs);
+
+    return { status: "ok", msg: "Vistoria salva com sucesso" };
+
+  } catch (err) {
+    return { status: "error", msg: err.toString() };
+  }
+}
