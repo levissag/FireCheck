@@ -288,6 +288,14 @@ return HtmlService.createHtmlOutput(`
       50%  { transform: scale(1.1); opacity: 1;   }
       100% { transform: scale(1);   opacity: 1;   }
     }
+    .modal-card-size {
+      max-width: 380px !important;  /* tamanho aproximado do seu card */
+      width: 95%;                   /* responsivo */
+    }
+
+    .modal-content {
+      border-radius: 12px;
+    }
 
     </style>
 
@@ -352,7 +360,7 @@ return HtmlService.createHtmlOutput(`
 
     <!-- ===================== MODAL DO FORMULÁRIO ===================== -->
     <div class="modal fade" id="modalVistoria" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-dialog modal-dialog-centered modal-card-size modal-lg">
         <div class="modal-content" style="background: var(--card-bg); color: var(--text-light); border: 1px solid #333;">
 
           <div class="modal-header">
